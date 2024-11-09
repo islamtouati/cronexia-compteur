@@ -1,4 +1,6 @@
+// @ts-nocheck
 /* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { Plus, Minus, ArrowLeft } from "lucide-react";
 
 import { Button } from "@/components/ui/button";

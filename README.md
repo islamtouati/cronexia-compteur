@@ -1,50 +1,6 @@
-# React + TypeScript + Vite
-
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
-
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
-
-- Configure the top-level `parserOptions` property like this:
-
-```js
-export default tseslint.config({
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
-
-- Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
-- Optionally add `...tseslint.configs.stylisticTypeChecked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and update the config:
-
-```js
-// eslint.config.js
-import react from 'eslint-plugin-react'
-
-export default tseslint.config({
-  // Set the react version
-  settings: { react: { version: '18.3' } },
-  plugins: {
-    // Add the react plugin
-    react,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended rules
-    ...react.configs.recommended.rules,
-    ...react.configs['jsx-runtime'].rules,
-  },
-})
-```
+## Théorie
+1. FOUC signifie Flash of Unstyled Content. Il se produit lorsque le contenu d'une page s'affiche sans son style CSS pendant un bref instant, avant que le navigateur ne charge et n’applique les feuilles de style. Ce phénomène peut être dérangeant pour les utilisateurs, car il rend l'expérience visuelle confuse et peu professionnelle.
+2. Techniques d'optimisation des performances pour un frontend avec React ou autres, surtout pour des pages avec un fort contenu et des données provenant d'APIs :
+### Utilisation de useMemo pour l'optimisation des performances :
+- **useMemo** permet de mémoriser le résultat d'une fonction complexe ou d'un calcul coûteux, afin qu’il ne soit recalculé que lorsque ses dépendances changent. C'est particulièrement utile dans les cas où un composant affiche un fort contenu ou travaille avec beaucoup de données provenant d'APIs.
+- **useCallback** : Pour mémoriser des fonctions et éviter de les redéfinir, notamment lorsqu'elles sont passées comme props à des composants enfants.

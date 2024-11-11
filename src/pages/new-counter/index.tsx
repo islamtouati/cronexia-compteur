@@ -1,7 +1,7 @@
 // @ts-nocheck
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { Plus, Minus, ArrowLeft } from "lucide-react";
+import { Plus, Minus, ArrowLeft, FlaskConical, SaveIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,27 +18,22 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { Counter } from "@/utils/types";
-
-// const formSchema = z.object({
-//   label: z.string().min(2, {
-//     message: "label must be at least 2 characters.",
-//   }),
-// });
+import {
+  CalculationStep,
+  Counter,
+  isCalculationGroupStep,
+  Periodicity,
+  Step,
+  StepType,
+} from "@/utils/types";
+import FunctionCondition from "./components/function-condition";
+import VariableCondition from "./components/variable-condition";
+import CalculationCondition from "./components/calculation-condition";
+import ResultModal from "./components/result-modal";
+import { DatePicker } from "./components/date-picker";
 
 export default function NewCounterPage() {
   const navigate = useNavigate();
-  //   const form = useForm<z.infer<typeof formSchema>>({
-  //     resolver: zodResolver(formSchema),
-  //     defaultValues: {
-  //       label: "",
-  //     },
-  //   });
-  //   function onSubmit(values: z.infer<typeof formSchema>) {
-  //     // Do something with the form values.
-  //     // ✅ This will be type-safe and validated.
-  //     console.log(values);
-  //   }
   const [counter, setCounter] = useState<Counter>({
     label: "",
     code: "",
@@ -82,6 +77,7 @@ export default function NewCounterPage() {
       },
     ],
   });
+  const [isOpen, setIsOpen] = useState(false);
 
   const addFormula = () => {
     const newCounter = { ...counter };
@@ -121,44 +117,118 @@ export default function NewCounterPage() {
     setCounter(newCounter);
   };
 
-  const updateCounter = (field: string, value: any) => {
-    const newCounter = { ...counter };
-    newCounter[field] = value;
-    setCounter(newCounter);
+  const updateCounter = <K extends keyof Counter>(
+    field: K,
+    value: Counter[K]
+  ) => {
+    setCounter((prevCounter) => ({
+      ...prevCounter,
+      [field]: value,
+    }));
   };
 
-  const updateFormula = (formulaIndex: number, field: string, value: any) => {
+  const updateFormula = <K extends keyof Step>(
+    formulaIndex: number,
+    field: K,
+    value: Step[K]
+  ) => {
     const newCounter = { ...counter };
-    newCounter.formulas[formulaIndex][field] = value;
+    newCounter.formulas[formulaIndex] = {
+      ...newCounter.formulas[formulaIndex],
+      [field]: value,
+    };
     setCounter(newCounter);
   };
 
   const addCalcul = (formulaIndex: number) => {
     const newCounter = { ...counter };
-    newCounter.formulas[formulaIndex].calculs.push({
-      param: "",
-      operatorArithmetic: "Addition",
-    });
+    const formula = newCounter.formulas[formulaIndex];
+
+    if (isCalculationGroupStep(formula)) {
+      formula.calculs = [
+        ...formula.calculs,
+        { param: "", operatorArithmetic: "Addition" },
+      ];
+    }
+
     setCounter(newCounter);
   };
 
   const removeCalcul = (formulaIndex: number, calculIndex: number) => {
     const newCounter = { ...counter };
-    newCounter.formulas[formulaIndex].calculs = newCounter.formulas[
-      formulaIndex
-    ].calculs.filter((_, i) => i !== calculIndex);
+    const formula = newCounter.formulas[formulaIndex];
+
+    // Check if the formula is of type CalculationGroupStep
+    if (isCalculationGroupStep(formula)) {
+      formula.calculs = formula.calculs.filter((_, i) => i !== calculIndex);
+    }
+
     setCounter(newCounter);
   };
 
   const updateCalcul = (
     formulaIndex: number,
     calculIndex: number,
-    field: string,
+    field: keyof CalculationStep, // Ensure field is a valid key of CalculationStep
     value: any
   ) => {
     const newCounter = { ...counter };
-    newCounter.formulas[formulaIndex].calculs[calculIndex][field] = value;
+    const formula = newCounter.formulas[formulaIndex];
+
+    // Check if the formula is of type CalculationGroupStep
+    if (isCalculationGroupStep(formula)) {
+      formula.calculs[calculIndex][field] = value;
+    }
+
     setCounter(newCounter);
+  };
+  const addReturnCalcul = (formulaIndex: number) => {
+    const newCounter = { ...counter };
+    const formula = newCounter.formulas[formulaIndex];
+    if (
+      formula.type === "Return" &&
+      formula.return.entityType === "Calculation"
+    ) {
+      formula.return.calculs = [
+        ...(formula.return.calculs || []),
+        { param: "", operatorArithmetic: "Addition" },
+      ];
+
+      setCounter(newCounter);
+    }
+  };
+
+  const removeReturnCalcul = (formulaIndex: number, calculIndex: number) => {
+    const newCounter = { ...counter };
+    const formula = newCounter.formulas[formulaIndex];
+    if (
+      formula.type === "Return" &&
+      formula.return.entityType === "Calculation"
+    ) {
+      formula.return.calculs = formula.return.calculs?.filter(
+        (_, i) => i !== calculIndex
+      );
+
+      setCounter(newCounter);
+    }
+  };
+
+  const updateReturnCalcul = (
+    formulaIndex: number,
+    calculIndex: number,
+    field: keyof CalculationStep, // Ensure field is a valid key of CalculationStep
+    value: any
+  ) => {
+    const newCounter = { ...counter };
+    const formula = newCounter.formulas[formulaIndex];
+    if (
+      formula.type === "Return" &&
+      formula.return.entityType === "Calculation"
+    ) {
+      if (formula.return.calculs)
+        formula.return.calculs[calculIndex][field] = value;
+      setCounter(newCounter);
+    }
   };
   return (
     <Card className="w-full">
@@ -206,7 +276,9 @@ export default function NewCounterPage() {
               <Label htmlFor={`counter-periodicity`}>Periodicity</Label>
               <Select
                 value={counter.periodicity}
-                onValueChange={(value) => updateCounter("periodicity", value)}
+                onValueChange={(value) =>
+                  updateCounter("periodicity", value as Periodicity)
+                }
               >
                 <SelectTrigger id={`counter-periodicity`}>
                   <SelectValue placeholder="Select periodicity" />
@@ -216,32 +288,33 @@ export default function NewCounterPage() {
                   <SelectItem value="Weekly">Weekly</SelectItem>
                   <SelectItem value="Monthly">Monthly</SelectItem>
                   <SelectItem value="Yearly">Yearly</SelectItem>
+                  <SelectItem value="Custom">
+                    <div className="flex items-center gap-2">
+                      <FlaskConical className="size-4" />
+                      Custom
+                    </div>
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor={`counter-dateStartLimit`}>Start Date</Label>
-              <Input
-                id={`counter-dateStartLimit`}
-                type="date"
-                value={counter.dateStartLimit}
-                onChange={(e) =>
-                  updateCounter("dateStartLimit", e.target.value)
-                }
+          {counter.periodicity === "Custom" && (
+            <div className="grid grid-cols-2 gap-4">
+              <DatePicker
+                htmlFor="dateStartLimit"
+                label="Start Date"
+                value={counter.dateStartLimit ?? new Date()}
+                onChange={(date) => updateCounter("dateStartLimit", date)}
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor={`counter-dateEndLimit`}>End Date</Label>
-              <Input
-                id={`counter-dateEndLimit`}
-                type="date"
+              <DatePicker
+                htmlFor="dateEndLimit"
+                label="End Date"
                 value={counter.dateEndLimit}
-                onChange={(e) => updateCounter("dateEndLimit", e.target.value)}
+                onChange={(date) => updateCounter("dateEndLimit", date)}
+                fromDate={counter.dateStartLimit}
               />
             </div>
-          </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor={`counter-family`}>Family</Label>
             <Input
@@ -263,9 +336,9 @@ export default function NewCounterPage() {
               <div className="flex items-center space-x-2" key={day}>
                 <Switch
                   id={`counter-on${day}`}
-                  checked={counter[`on${day}`]}
+                  checked={counter[`on${day}` as keyof Counter] as boolean}
                   onCheckedChange={(checked) =>
-                    updateCounter(`on${day}`, checked)
+                    updateCounter(`on${day}` as keyof Counter, checked)
                   }
                 />
                 <Label htmlFor={`counter-on${day}`}>On {day}</Label>
@@ -304,7 +377,11 @@ export default function NewCounterPage() {
                         <Select
                           value={formula.type}
                           onValueChange={(value) =>
-                            updateFormula(formulaIndex, "type", value)
+                            updateFormula(
+                              formulaIndex,
+                              "type",
+                              value as StepType
+                            )
                           }
                         >
                           <SelectTrigger id={`formula-type-${formulaIndex}`}>
@@ -321,22 +398,6 @@ export default function NewCounterPage() {
                           </SelectContent>
                         </Select>
                       </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor={`formula-variableName-${formulaIndex}`}>
-                        Variable Name
-                      </Label>
-                      <Input
-                        id={`formula-variableName-${formulaIndex}`}
-                        value={formula.variableName}
-                        onChange={(e) =>
-                          updateFormula(
-                            formulaIndex,
-                            "variableName",
-                            e.target.value
-                          )
-                        }
-                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor={`formula-description-${formulaIndex}`}>
@@ -356,217 +417,66 @@ export default function NewCounterPage() {
                     </div>
 
                     {formula.type === "Variable" && (
-                      <>
-                        <div className="space-y-2">
-                          <Label htmlFor={`formula-entityType-${formulaIndex}`}>
-                            Entity Type
-                          </Label>
-                          <Select
-                            value={formula.entityType}
-                            onValueChange={(value) =>
-                              updateFormula(formulaIndex, "entityType", value)
-                            }
-                          >
-                            <SelectTrigger
-                              id={`formula-entityType-${formulaIndex}`}
-                            >
-                              <SelectValue placeholder="Select entity type" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Constant">Constant</SelectItem>
-                              <SelectItem value="Variable">Variable</SelectItem>
-                              <SelectItem value="Function">Function</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor={`formula-valueType-${formulaIndex}`}>
-                            Value Type
-                          </Label>
-                          <Select
-                            value={formula.valueType}
-                            onValueChange={(value) =>
-                              updateFormula(formulaIndex, "valueType", value)
-                            }
-                          >
-                            <SelectTrigger
-                              id={`formula-valueType-${formulaIndex}`}
-                            >
-                              <SelectValue placeholder="Select value type" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Boolean">Boolean</SelectItem>
-                              <SelectItem value="Date">Date</SelectItem>
-                              <SelectItem value="Float">Float</SelectItem>
-                              <SelectItem value="Number">Number</SelectItem>
-                              <SelectItem value="String">String</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor={`formula-value-${formulaIndex}`}>
-                            Value
-                          </Label>
-                          <Input
-                            id={`formula-value-${formulaIndex}`}
-                            value={formula.value}
-                            onChange={(e) =>
-                              updateFormula(
-                                formulaIndex,
-                                "value",
-                                e.target.value
-                              )
-                            }
-                            type={
-                              formula.valueType === "Date" ? "date" : "text"
-                            }
-                          />
-                        </div>
-                      </>
+                      <VariableCondition
+                        keyLabel="formula"
+                        value={formula.value}
+                        formulaIndex={formulaIndex}
+                        variableName={formula.variableName}
+                        onValueChange={(e) =>
+                          updateFormula(formulaIndex, "value", e.target.value)
+                        }
+                        onVariableNameChange={(e) =>
+                          updateFormula(
+                            formulaIndex,
+                            "variableName",
+                            e.target.value
+                          )
+                        }
+                      />
                     )}
 
                     {formula.type === "Function" && (
-                      <>
-                        <div className="space-y-2">
-                          <Label
-                            htmlFor={`formula-function-code-${formulaIndex}`}
-                          >
-                            Function Code
-                          </Label>
-                          <Select
-                            value={formula.function.code}
-                            onValueChange={(value) =>
-                              updateFormula(formulaIndex, "function", {
-                                ...formula.function,
-                                code: value,
-                              })
-                            }
-                          >
-                            <SelectTrigger
-                              id={`formula-function-code-${formulaIndex}`}
-                            >
-                              <SelectValue placeholder="Select function" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="MODULO">MODULO</SelectItem>
-                              <SelectItem value="MAX">MAX</SelectItem>
-                              <SelectItem value="MIN">MIN</SelectItem>
-                              <SelectItem value="PARTIE_ENTIERE">
-                                PARTIE_ENTIERE
-                              </SelectItem>
-                              <SelectItem value="PARTIE_DECIMALE">
-                                PARTIE_DECIMALE
-                              </SelectItem>
-                              <SelectItem value="ARRONDI">ARRONDI</SelectItem>
-                              <SelectItem value="ABS">ABS</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label
-                            htmlFor={`formula-function-paramFirst-${formulaIndex}`}
-                          >
-                            First Parameter
-                          </Label>
-                          <Input
-                            id={`formula-function-paramFirst-${formulaIndex}`}
-                            value={formula.function.paramFirst}
-                            onChange={(e) =>
-                              updateFormula(formulaIndex, "function", {
-                                ...formula.function,
-                                paramFirst: e.target.value,
-                              })
-                            }
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label
-                            htmlFor={`formula-function-paramSecond-${formulaIndex}`}
-                          >
-                            Second Parameter
-                          </Label>
-                          <Input
-                            id={`formula-function-paramSecond-${formulaIndex}`}
-                            value={formula.function.paramSecond}
-                            onChange={(e) =>
-                              updateFormula(formulaIndex, "function", {
-                                ...formula.function,
-                                paramSecond: e.target.value,
-                              })
-                            }
-                          />
-                        </div>
-                      </>
+                      <FunctionCondition
+                        keyLabel="formula"
+                        formulaFunction={formula.function}
+                        formulaIndex={formulaIndex}
+                        variableName={formula.variableName}
+                        onCodeChange={(value) =>
+                          updateFormula(formulaIndex, "function", {
+                            ...formula.function,
+                            code: value,
+                          })
+                        }
+                        onParamFirstChange={(e) =>
+                          updateFormula(formulaIndex, "function", {
+                            ...formula.function,
+                            paramFirst: e.target.value,
+                          })
+                        }
+                        onparamSecondChange={(e) =>
+                          updateFormula(formulaIndex, "function", {
+                            ...formula.function,
+                            paramSecond: e.target.value,
+                          })
+                        }
+                        onVariableNameChange={(e) =>
+                          updateFormula(
+                            formulaIndex,
+                            "variableName",
+                            e.target.value
+                          )
+                        }
+                      />
                     )}
 
                     {formula.type === "Calculation" && (
-                      <>
-                        <div className="space-y-4">
-                          {formula.calculs.map((calcul, calculIndex) => (
-                            <div
-                              key={calculIndex}
-                              className="flex items-center space-x-2"
-                            >
-                              {calculIndex > 0 && (
-                                <Select
-                                  value={calcul.operatorArithmetic}
-                                  onValueChange={(value) =>
-                                    updateCalcul(
-                                      formulaIndex,
-                                      calculIndex,
-                                      "operatorArithmetic",
-                                      value
-                                    )
-                                  }
-                                >
-                                  <SelectTrigger className="w-[100px]">
-                                    <SelectValue placeholder="Operator" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="Addition">+</SelectItem>
-                                    <SelectItem value="Substraction">
-                                      -
-                                    </SelectItem>
-                                    <SelectItem value="Multiplication">
-                                      ×
-                                    </SelectItem>
-                                    <SelectItem value="Division">÷</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              )}
-                              <Input
-                                value={calcul.param}
-                                onChange={(e) =>
-                                  updateCalcul(
-                                    formulaIndex,
-                                    calculIndex,
-                                    "param",
-                                    e.target.value
-                                  )
-                                }
-                                placeholder="Parameter"
-                              />
-                              <Button
-                                onClick={() =>
-                                  removeCalcul(formulaIndex, calculIndex)
-                                }
-                                variant="destructive"
-                                size="icon"
-                              >
-                                <Minus className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ))}
-                          <Button
-                            onClick={() => addCalcul(formulaIndex)}
-                            variant="outline"
-                            size="sm"
-                          >
-                            <Plus className="mr-2 h-4 w-4" />
-                            Add Calculation Step
-                          </Button>
-                        </div>
-                      </>
+                      <CalculationCondition
+                        formulaIndex={formulaIndex}
+                        formulaCalculs={formula.calculs}
+                        addCalcul={addCalcul}
+                        updateCalcul={updateCalcul}
+                        removeCalcul={removeCalcul}
+                      />
                     )}
 
                     {formula.type === "Condition" && (
@@ -579,7 +489,7 @@ export default function NewCounterPage() {
                           </Label>
                           <Input
                             id={`formula-condition-left-${formulaIndex}`}
-                            value={formula.condition.left}
+                            value={formula.condition.left as string | number}
                             onChange={(e) =>
                               updateFormula(formulaIndex, "condition", {
                                 ...formula.condition,
@@ -636,7 +546,7 @@ export default function NewCounterPage() {
                           </Label>
                           <Input
                             id={`formula-condition-right-${formulaIndex}`}
-                            value={formula.condition.right}
+                            value={formula.condition.right as string | number}
                             onChange={(e) =>
                               updateFormula(formulaIndex, "condition", {
                                 ...formula.condition,
@@ -707,23 +617,88 @@ export default function NewCounterPage() {
                             </SelectContent>
                           </Select>
                         </div>
-                        <div className="space-y-2">
-                          <Label
-                            htmlFor={`formula-return-value-${formulaIndex}`}
-                          >
-                            Return Value
-                          </Label>
+                        {formula.return?.entityType === "Constant" && (
                           <Input
-                            id={`formula-return-value-${formulaIndex}`}
-                            value={formula.return.value}
+                            value={formula.return?.value as number | string}
                             onChange={(e) =>
                               updateFormula(formulaIndex, "return", {
                                 ...formula.return,
                                 value: e.target.value,
                               })
                             }
+                            placeholder="Constant value"
                           />
-                        </div>
+                        )}
+                        {formula.return?.entityType === "Variable" && (
+                          <VariableCondition
+                            keyLabel="formula-return"
+                            value={formula.return?.value}
+                            formulaIndex={formulaIndex}
+                            variableName={formula.return?.variableName}
+                            onValueChange={(e) =>
+                              updateFormula(formulaIndex, "return", {
+                                ...formula.return,
+                                variableName: e.target.value,
+                              })
+                            }
+                            onVariableNameChange={(e) =>
+                              updateFormula(formulaIndex, "return", {
+                                ...formula.return,
+                                variableName: e.target.value,
+                              })
+                            }
+                          />
+                        )}
+                        {formula.return?.entityType === "Function" && (
+                          <FunctionCondition
+                            keyLabel="formula-return"
+                            formulaFunction={formula.return.function}
+                            formulaIndex={formulaIndex}
+                            variableName={formula.return.variableName}
+                            onCodeChange={(value) =>
+                              updateFormula(formulaIndex, "return", {
+                                ...formula.return,
+                                function: {
+                                  ...formula.return.function,
+                                  code: value,
+                                },
+                              })
+                            }
+                            onParamFirstChange={(e) =>
+                              updateFormula(formulaIndex, "return", {
+                                ...formula.return,
+                                function: {
+                                  ...formula.return.function,
+                                  paramFirst: e.target.value,
+                                },
+                              })
+                            }
+                            onparamSecondChange={(e) =>
+                              updateFormula(formulaIndex, "return", {
+                                ...formula.return,
+                                function: {
+                                  ...formula.return.function,
+                                  paramSecond: e.target.value,
+                                },
+                              })
+                            }
+                            onVariableNameChange={(e) =>
+                              updateFormula(formulaIndex, "return", {
+                                ...formula.return,
+                                variableName: e.target.value,
+                              })
+                            }
+                          />
+                        )}
+                        {formula.return?.entityType === "Calculation" && (
+                          <CalculationCondition
+                            formulaIndex={formulaIndex}
+                            formulaCalculs={formula.return.calculs}
+                            addCalcul={addReturnCalcul}
+                            updateCalcul={updateReturnCalcul}
+                            removeCalcul={removeReturnCalcul}
+                          />
+                        )}
                       </>
                     )}
                   </div>
@@ -739,6 +714,23 @@ export default function NewCounterPage() {
                 </CardContent>
               </Card>
             ))}
+            <div className="flex items-center justify-end">
+              <Button
+                onClick={() => setIsOpen(true)}
+                variant="outline"
+                size="sm"
+              >
+                <SaveIcon className="mr-2 h-4 w-4" />
+                Submit the counter
+              </Button>
+              <ResultModal
+                jsonData={counter}
+                isOpen={isOpen}
+                setIsOpen={setIsOpen}
+                title="Counter Data"
+                description="This is the JSON representation of the counter data"
+              />
+            </div>
           </div>
         </div>
       </CardContent>

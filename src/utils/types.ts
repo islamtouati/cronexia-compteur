@@ -1,5 +1,5 @@
 // Basic types
-type Periodicity = "Daily" | "Weekly" | "Monthly" | "Yearly" | "TODO_Calendar";
+type Periodicity = "Daily" | "Weekly" | "Monthly" | "Yearly" | "Custom";
 type ValueType = "Boolean" | "Date" | "Float" | "Number" | "String";
 type StepType =
   | "Condition"
@@ -8,6 +8,13 @@ type StepType =
   | "Return"
   | "Variable";
 type EntityType = "Constant" | "Calculation" | "Function" | "Variable";
+type ConditionValues =
+  | "Equal"
+  | "NotEqual"
+  | "GreaterThan"
+  | "LessThan"
+  | "GreaterThanOrEqual"
+  | "LessThanOrEqual";
 type OperatorArithmetic =
   | "Addition"
   | "Division"
@@ -38,14 +45,14 @@ type TypeToValue<T extends ValueType> = T extends "Boolean"
 // Function definition
 interface FunctionDefinition {
   code: FunctionCode;
-  paramFirst: unknown; // Could be any parameter type
-  paramSecond: unknown; // Could be any parameter type
+  paramFirst: unknown;
+  paramSecond: unknown;
 }
 
 // Calculation step
 interface CalculationStep {
   operatorArithmetic?: OperatorArithmetic;
-  param: unknown; // Could be any parameter type
+  param: unknown;
 }
 
 // Parameter definitions
@@ -98,6 +105,10 @@ interface CalculationGroupStep extends BaseStep {
   type: "Calculation";
   calculs: CalculationStep[];
 }
+interface ConditionStep extends BaseStep {
+  type: "Condition";
+  condition: { left: unknown; operator: ConditionValues; right: unknown };
+}
 
 interface ReturnStep extends BaseStep {
   type: "Return";
@@ -111,7 +122,12 @@ interface ReturnStep extends BaseStep {
   };
 }
 
-type Step = VariableStep | FunctionStep | CalculationGroupStep | ReturnStep;
+type Step =
+  | VariableStep
+  | FunctionStep
+  | CalculationGroupStep
+  | ReturnStep
+  | ConditionStep;
 
 // Counter definition
 interface Counter {
@@ -119,8 +135,8 @@ interface Counter {
   code: string;
   labelShort: string;
   periodicity: Periodicity;
-  dateStartLimit?: string;
-  dateEndLimit?: string;
+  dateStartLimit?: Date;
+  dateEndLimit?: Date;
   family?: string;
   onMonday?: boolean;
   onTuesday?: boolean;
@@ -159,6 +175,9 @@ const isPeriodicity = (value: string): value is Periodicity => {
     value
   );
 };
+const isCalculationGroupStep = (step: Step): step is CalculationGroupStep => {
+  return step.type === "Calculation";
+};
 
 export type {
   Counter,
@@ -170,7 +189,16 @@ export type {
   StepType,
   Periodicity,
   FunctionCode,
+  FunctionDefinition,
   OperatorArithmetic,
+  CalculationStep,
+  CalculationGroupStep,
 };
 
-export { isValueType, isEntityType, isStepType, isPeriodicity };
+export {
+  isValueType,
+  isEntityType,
+  isStepType,
+  isPeriodicity,
+  isCalculationGroupStep,
+};
